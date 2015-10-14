@@ -23,7 +23,10 @@ WiFiClient Telnet;
 WiFiUDP OTA;
 
 // Temperature
-OneWire  ds(5);  // on pin D4 LoLin board 
+OneWire  onewire(5);  // on pin D4 LoLin board 
+// Pass our oneWire reference to Dallas Temperature. 
+DallasTemperature sensors(&onewire);
+
 byte addr[sensorIdSize];
 
 // #define THINGSPEAK_KEY ABCDEFGH
@@ -32,7 +35,7 @@ String GET = "/update?api_key=" + String(THINGSPEAK_KEY) + "&field1=";
 const int updateTimeout = 15*60*1000; // Thingspeak update rate
 const int rebootTimeout = 1000*60*60*6;
 
-const byte sensorID[numberOfSensors][sensorIdSize] = {
+DeviceAddress sensorID[numberOfSensors] = {
     {0x28, 0xFF, 0x2B, 0x56, 0x74, 0x15, 0x03, 0x91},
     {0x28, 0xFF, 0x5D, 0x88, 0x73, 0x15, 0x02, 0x50},
     {0x28, 0xFF, 0xF0, 0x1E, 0x61, 0x15, 0x03, 0x3C}};
@@ -64,14 +67,38 @@ void setup() {
   TelnetServer.begin();
   TelnetServer.setNoDelay(true);
 
-  // Searching for temperature sensors
-  while(initTemperature(false)){
-    Serial.println("Found temperature sensor!");
+  sensors.begin();
+  Serial.print("Locating devices...");
+  Serial.print("Found ");
+  Serial.print(sensors.getDeviceCount(), DEC);
+  Serial.println(" devices.");
+
+  // report parasite power requirements
+  Serial.print("Parasite power is: "); 
+  if (sensors.isParasitePowerMode()) { 
+    Serial.println("ON");
+  }
+  else {
+    Serial.println("OFF");
   }
 
+  for(int i=0; i<numberOfSensors; i++){
+    sensors.setResolution(sensorID[i], 12);
+    printAddress(sensorID[i]);
+    Serial.println(" has resolution of " + String(sensors.getResolution(sensorID[i])) + " bits");
+  }
   ESP.wdtEnable(0);
 }
 
+void printAddress(DeviceAddress deviceAddress)
+{
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    // zero pad the address if necessary
+    if (deviceAddress[i] < 16) Serial.print("0");
+    Serial.print(deviceAddress[i], HEX);
+  }
+}
 long lastTimeReport = 0;
 long nextTimeReport = 0;
 int lastLoopTime = 0;
@@ -81,8 +108,12 @@ void loop() {
   if(millis() - lastLoopTime > loopTimeout) {
     lastLoopTime = millis();
 
+    Serial.print("Requesting temperatures...");
+    sensors.requestTemperatures();
+    Serial.println("DONE");
+
     for(int i=0; i<numberOfSensors; i++){
-      temperatures[i] = getTemperature((byte*)sensorID[i], true);
+      temperatures[i] = sensors.getTempC(sensorID[i]);
     }
     
     Serial.println("Temperature Deep : " + String(temperatures[DEEP]) + " Shallow: " + String(temperatures[SHALLOW]) + " Air: " + String(temperatures[AIR]));
