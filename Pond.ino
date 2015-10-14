@@ -102,7 +102,7 @@ void printAddress(DeviceAddress deviceAddress)
 long lastTimeReport = 0;
 long nextTimeReport = 0;
 int lastLoopTime = 0;
-const int loopTimeout = 1000;
+const int loopTimeout = 10000;
 void loop() {
   // put your main code here, to run repeatedly:
   if(millis() - lastLoopTime > loopTimeout) {
