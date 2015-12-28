@@ -58,6 +58,10 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+
+    if(millis() > 2*60*1000) { // 2 minutes
+      ESP.restart();
+    }
   }
 
   // Start OTA
@@ -104,7 +108,6 @@ long nextTimeReport = 0;
 int lastLoopTime = 0;
 const int loopTimeout = 10000;
 void loop() {
-  // put your main code here, to run repeatedly:
   if(millis() - lastLoopTime > loopTimeout) {
     lastLoopTime = millis();
 
@@ -127,7 +130,12 @@ void loop() {
       SendThingspeak(temperatures[DEEP], temperatures[SHALLOW], temperatures[AIR]);
     }      
   }
-  
+
+  if(millis() > (lastTimeReport + 2*updateTimeout)) {
+    Serial.println("No server response -> Restarting");
+    ESP.restart();
+  }
+    
   checkOTA();
 
   if(millis() > rebootTimeout){
